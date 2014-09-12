@@ -1,6 +1,6 @@
 require "celluloid/proxies/abstract_proxy"
 require "celluloid/proxies/sync_proxy"
-require "celluloid/proxies/actor_proxy"
+require "celluloid/proxies/cell_proxy"
 
 module Celluloid
   class CellProxy < SyncProxy

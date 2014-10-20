@@ -1,13 +1,15 @@
+require 'celluloid/autostart'
+
 module SuckerPunch
   class BatchedQueue
     include ::Celluloid
     include ::Celluloid::Notifications
 
     def initialize(klass)
+      puts "After commit"
       @klass = klass
       @batches = {}
       @mutex = Mutex.new
-      Celluloid::Actor[name] = self
     end
 
     def add_batch(batch_id, job_ids, args = [])
@@ -15,10 +17,6 @@ module SuckerPunch
         @batches[batch_id] = {args: args, ids: job_ids}
         subscribe('job_in_batch_completed', :handle_job_completed)
       end
-    end
-
-    def name
-      @klass.to_s.underscore.to_sym
     end
 
     def handle_job_completed(topic, batch_id, job_id)
@@ -34,6 +32,14 @@ module SuckerPunch
           # Ignore if the batch doesnt exist
         end
       end
+    end
+
+    def name
+      @klass.to_s.underscore.to_sym
+    end
+    
+    def register
+      Celluloid::Actor[name] = self
     end
   end
 end

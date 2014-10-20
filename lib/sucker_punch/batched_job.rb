@@ -9,8 +9,8 @@ module SuckerPunch
 
       base.class_eval do
         def self.new
+          define_batched_actor(self)
           define_celluloid_pool(self, @workers)
-          SuckerPunch::BatchedQueue.new(self).register
         end
 
         def self.run_after_batch(klass)
@@ -30,6 +30,13 @@ module SuckerPunch
 
       def define_celluloid_pool(klass, num_workers)
         SuckerPunch::Queue.new(klass).register(num_workers)
+      end
+
+      def define_batched_actor(klass)
+        unless Celluloid::Actor.registered.include? "#{klass.to_s.underscore}_batch".to_sym
+          actor = SuckerPunch::BatchedQueue.new(klass)
+          actor.register(actor)
+        end
       end
     end
   end

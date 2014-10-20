@@ -6,16 +6,15 @@ module SuckerPunch
     include ::Celluloid::Notifications
 
     def initialize(klass)
-      puts "After commit"
       @klass = klass
       @batches = {}
       @mutex = Mutex.new
+      subscribe('job_in_batch_completed', :handle_job_completed)
     end
 
     def add_batch(batch_id, job_ids, args = [])
       @mutex.synchronize do
         @batches[batch_id] = {args: args, ids: job_ids}
-        subscribe('job_in_batch_completed', :handle_job_completed)
       end
     end
 
@@ -35,11 +34,21 @@ module SuckerPunch
     end
 
     def name
-      @klass.to_s.underscore.to_sym
+      "#{@klass.to_s.underscore}_batch".to_sym
     end
     
-    def register
-      Celluloid::Actor[name] = self
+    def register(actor)
+      @mutex.synchronize do
+        unless registered?
+          Celluloid::Actor[name] = actor
+        end
+      end
+
+      Celluloid::Actor[name]
+    end
+
+    def registered?
+      Celluloid::Actor.registered.include?(name.to_sym)
     end
   end
 end

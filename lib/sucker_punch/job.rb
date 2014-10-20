@@ -20,6 +20,5 @@ module SuckerPunch
         SuckerPunch::Queue.new(klass).register(num_workers)
       end
     end
-
   end
 end

@@ -1,6 +1,7 @@
 module SuckerPunch
   module BatchedJob
     def self.included(base)
+      base.send(:include, ::Celluloid)
       base.send(:include, ::Celluloid::Notifications)
       base.extend(ClassMethods)
 
@@ -21,7 +22,7 @@ module SuckerPunch
         @workers = num
       end
 
-      def after_batch(klass)
+      def run_after_batch(klass)
         @after_batch = klass
       end
 

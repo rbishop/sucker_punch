@@ -28,7 +28,7 @@ module SuckerPunch
           batch[:ids].delete(job_id)
 
           if batch[:ids].empty?
-            @klass.after_job.new.async.perform(batch[:args])
+            @klass.after_batch.new.async.perform(batch[:args])
           end
         rescue KeyError
           # Ignore if the batch doesnt exist

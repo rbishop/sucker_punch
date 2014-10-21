@@ -7,6 +7,7 @@ module SuckerPunch
       @klass = klass
       @batches = {}
       @mutex = Mutex.new
+      setup_fanout_notifier
       subscribe(subscription_name, :handle_job_completed)
     end
 
@@ -37,6 +38,14 @@ module SuckerPunch
         after_job.perform(*args)
       else
         after_job.perform
+      end
+    end
+
+    def setup_fanout_notifier
+      @mutex.synchronize do
+        unless Celluloid::Actor[:notifications_fanout]
+          Celluloid::Actor[:notifications_fanout] = Celluloid::Notifications::Fanout.new
+        end
       end
     end
 

@@ -1,9 +1,7 @@
-require 'celluloid/autostart'
-
 module SuckerPunch
   module BatchedJob
     def self.included(base)
-      base.send(:include, ::Celluloid)
+      base.send(:include, SuckerPunch::Job)
       base.send(:include, ::Celluloid::Notifications)
       base.extend(ClassMethods)
 
@@ -13,30 +11,44 @@ module SuckerPunch
           define_celluloid_pool(self, @workers)
         end
 
-        def self.run_after_batch(klass)
-          @after_batch = klass
+        def batch(batch_args, *after_job_args)
+          batch_id = Celluloid.uuid
+
+          batch_args = batch_args.map { |job| job.unshift(batch_id, Celluloid.uuid) }
+          job_ids = batch_args.map { |job| job[1] }
+
+          Celluloid::Actor[self.class.batch_name].add_batch(batch_id, job_ids, after_job_args)
+          batch_args.each { |job| self.class.new.async.perform(*job) }
         end
 
-        def self.after_batch
-          @after_batch
+        def notify(*args)
+          publish(self.class.subscription_name, *args)
         end
       end
     end
 
     module ClassMethods
-      def workers(num)
-        @workers = num
+      def run_after_batch(klass)
+        @after_batch = klass
       end
 
-      def define_celluloid_pool(klass, num_workers)
-        SuckerPunch::Queue.new(klass).register(num_workers)
+      def after_batch
+        @after_batch
       end
 
       def define_batched_actor(klass)
-        unless Celluloid::Actor.registered.include? "#{klass.to_s.underscore}_batch".to_sym
+        unless Celluloid::Actor.registered.include?(batch_name)
           actor = SuckerPunch::BatchedQueue.new(klass)
-          actor.register(actor)
+          Celluloid::Actor[batch_name] = actor
         end
+      end
+      
+      def batch_name
+        "#{name.to_s.underscore}_batch".to_sym
+      end
+
+      def subscription_name
+        "#{name.to_s.underscore}_job_complete"
       end
     end
   end

@@ -5,7 +5,6 @@ require 'sucker_punch/queue'
 require 'sucker_punch/batched_job'
 require 'sucker_punch/batched_queue'
 require 'sucker_punch/version'
-require 'celluloid/autostart'
 
 module SuckerPunch
   def self.logger

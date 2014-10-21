@@ -1,5 +1,3 @@
-require 'celluloid/autostart'
-
 module SuckerPunch
   class BatchedQueue
     include ::Celluloid
@@ -9,7 +7,7 @@ module SuckerPunch
       @klass = klass
       @batches = {}
       @mutex = Mutex.new
-      subscribe('job_in_batch_completed', :handle_job_completed)
+      subscribe(subscription_name, :handle_job_completed)
     end
 
     def add_batch(batch_id, job_ids, args = [])
@@ -23,32 +21,31 @@ module SuckerPunch
         begin
           batch = @batches.fetch(batch_id)
           batch[:ids].delete(job_id)
-
-          if batch[:ids].empty?
-            @klass.after_batch.new.async.perform(batch[:args])
-          end
+          schedule_after_job(batch[:args]) if batch[:ids].empty?
         rescue KeyError
-          # Ignore if the batch doesnt exist
+          # If the batch doesn't exist, just ignore it.
         end
       end
     end
 
-    def name
+    private
+
+    def schedule_after_job(args)
+      after_job = @klass.after_batch.new.async
+
+      if args.any?
+        after_job.perform(*args)
+      else
+        after_job.perform
+      end
+    end
+
+    def batch_name
       "#{@klass.to_s.underscore}_batch".to_sym
     end
-    
-    def register(actor)
-      @mutex.synchronize do
-        unless registered?
-          Celluloid::Actor[name] = actor
-        end
-      end
 
-      Celluloid::Actor[name]
-    end
-
-    def registered?
-      Celluloid::Actor.registered.include?(name.to_sym)
+    def subscription_name
+      "#{@klass.to_s.underscore}_job_complete"
     end
   end
 end

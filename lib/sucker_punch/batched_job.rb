@@ -22,7 +22,7 @@ module SuckerPunch
             job_ids = job_args.map { |job| job[1] }
           end
 
-          batch = {args: after_args, after: after_klass, ids: job_ids}
+          batch = {args: after_args.push([]), after: after_klass, ids: job_ids}
           Celluloid::Actor[self.class.batch_name].add_batch(batch_id, batch)
           job_args.each { |job| self.class.new.async.perform(*job) }
         end

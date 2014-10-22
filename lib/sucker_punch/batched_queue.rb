@@ -15,10 +15,11 @@ module SuckerPunch
       @mutex.synchronize { @batches[batch_id] = batch }
     end
 
-    def handle_job_completed(topic, batch_id, job_id)
+    def handle_job_completed(topic, batch_id, job_id, *args_from_jobs)
       @mutex.synchronize do
         begin
           batch = @batches.fetch(batch_id)
+          batch[:args].last.concat(args_from_jobs) if args_from_jobs.any?
           batch[:ids].delete(job_id)
           schedule_after_job(batch[:after], batch[:args]) if batch[:ids].empty?
         rescue KeyError

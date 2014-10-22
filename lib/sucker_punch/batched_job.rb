@@ -11,14 +11,20 @@ module SuckerPunch
           define_celluloid_pool(self, @workers)
         end
 
-        def batch(batch_args, *after_job_args)
+        def batch(*after_args, after_klass, jobs)
           batch_id = Celluloid.uuid
 
-          batch_args = batch_args.map { |job| job.unshift(batch_id, Celluloid.uuid) }
-          job_ids = batch_args.map { |job| job[1] }
+          if jobs.is_a?(Hash)
+            job_ids = jobs[:num].times.map { Celluloid.uuid }
+            job_args = job_ids.map { |job_id| [batch_id, job_id].concat(jobs[:args] || []) }
+          elsif jobs.is_a?(Array)
+            job_args = jobs.map { |job| job.unshift(batch_id, Celluloid.uuid) }
+            job_ids = batch_args.map { |job| job[1] }
+          end
 
-          Celluloid::Actor[self.class.batch_name].add_batch(batch_id, job_ids, after_job_args)
-          batch_args.each { |job| self.class.new.async.perform(*job) }
+          batch = {args: after_args, after: after_klass, ids: job_ids}
+          Celluloid::Actor[self.class.batch_name].add_batch(batch_id, batch)
+          job_args.each { |job| self.class.new.async.perform(*job) }
         end
 
         def notify(*args)
@@ -28,14 +34,6 @@ module SuckerPunch
     end
 
     module ClassMethods
-      def run_after_batch(klass)
-        @after_batch = klass
-      end
-
-      def after_batch
-        @after_batch
-      end
-
       def define_batched_actor(klass)
         unless Celluloid::Actor.registered.include?(batch_name)
           actor = SuckerPunch::BatchedQueue.new(klass)

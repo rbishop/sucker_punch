@@ -8,13 +8,11 @@ module SuckerPunch
       @batches = {}
       @mutex = Mutex.new
       setup_fanout_notifier
-      subscribe(subscription_name, :handle_job_completed)
+      subscribe(klass.subscription_name, :handle_job_completed)
     end
 
-    def add_batch(batch_id, job_ids, args = [])
-      @mutex.synchronize do
-        @batches[batch_id] = {args: args, ids: job_ids}
-      end
+    def add_batch(batch_id, batch)
+      @mutex.synchronize { @batches[batch_id] = batch }
     end
 
     def handle_job_completed(topic, batch_id, job_id)
@@ -22,7 +20,7 @@ module SuckerPunch
         begin
           batch = @batches.fetch(batch_id)
           batch[:ids].delete(job_id)
-          schedule_after_job(batch[:args]) if batch[:ids].empty?
+          schedule_after_job(batch[:after], batch[:args]) if batch[:ids].empty?
         rescue KeyError
           # If the batch doesn't exist, just ignore it.
         end
@@ -31,13 +29,11 @@ module SuckerPunch
 
     private
 
-    def schedule_after_job(args)
-      after_job = @klass.after_batch.new.async
-
+    def schedule_after_job(klass, args)
       if args.any?
-        after_job.perform(*args)
+        klass.new.async.perform(*args)
       else
-        after_job.perform
+        klass.new.async.perform
       end
     end
 
@@ -47,14 +43,6 @@ module SuckerPunch
           Celluloid::Actor[:notifications_fanout] = Celluloid::Notifications::Fanout.new
         end
       end
-    end
-
-    def batch_name
-      "#{@klass.to_s.underscore}_batch".to_sym
-    end
-
-    def subscription_name
-      "#{@klass.to_s.underscore}_job_complete"
     end
   end
 end

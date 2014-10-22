@@ -19,7 +19,7 @@ module SuckerPunch
             job_args = job_ids.map { |job_id| [batch_id, job_id].concat(jobs[:args] || []) }
           elsif jobs.is_a?(Array)
             job_args = jobs.map { |job| job.unshift(batch_id, Celluloid.uuid) }
-            job_ids = batch_args.map { |job| job[1] }
+            job_ids = job_args.map { |job| job[1] }
           end
 
           batch = {args: after_args, after: after_klass, ids: job_ids}
